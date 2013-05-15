@@ -4,6 +4,7 @@
 .rbx/
 .#*
 .DS_Store
+.idea/
 *.dSYM
 *.class
 *.jar
