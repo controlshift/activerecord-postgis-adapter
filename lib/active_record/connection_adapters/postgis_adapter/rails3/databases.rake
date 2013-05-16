@@ -189,29 +189,28 @@ end
 end
 
 
-::RGeo::ActiveRecord::TaskHacker.modify('db:structure:dump', nil, 'postgis') do |config_|
-  set_psql_env(config_)
-  filename_ = ::File.join(::Rails.root, "db/#{::Rails.env}_structure.sql")
-  search_path_ = config_["schema_search_path"].to_s.strip
-  search_path_ = search_path_.split(",").map{ |sp_| sp_.strip }
-  search_path_.delete('postgis')
-  search_path_ = ['public'] if search_path_.length == 0
-  search_path_ = search_path_.map{ |sp_| "--schema=#{sp_}" }.join(" ")
-  `pg_dump -i -U "#{config_["username"]}" -s -x -O -f #{filename_} #{search_path_} #{config_["database"]}`
-  raise "Error dumping database" if $?.exitstatus == 1
+::RGeo::ActiveRecord::TaskHacker.modify('db:structure:dump', nil, 'postgis') do |config|
+  set_psql_env(config)
+  filename = ::File.join(::Rails.root, "db/structure.sql")
+  search_path = config['schema_search_path']
+  unless search_path.blank?
+    search_path = search_path.split(",").map{|search_path_part| "--schema=#{Shellwords.escape(search_path_part.strip)}" }.join(" ")
+  end
+  `pg_dump -i -s -x -O -f #{Shellwords.escape(filename)} #{search_path} #{Shellwords.escape(config['database'])}`
+  raise 'Error dumping database' if $?.exitstatus == 1
 end
 
 
 ::RGeo::ActiveRecord::TaskHacker.modify('db:structure:load', nil, 'postgis') do |config_|
   set_psql_env(config_)
-  filename_ = ::File.join(::Rails.root, "db/#{::Rails.env}_structure.sql")
+  filename_ = ::File.join(::Rails.root, "db/structure.sql")
   `psql -f #{filename_} #{config_["database"]}`
 end
 
 
 ::RGeo::ActiveRecord::TaskHacker.modify('db:test:clone_structure', 'test', 'postgis') do |config_|
   set_psql_env(config_)
-  `psql -U "#{config_["username"]}" -f #{::Rails.root}/db/#{::Rails.env}_structure.sql #{config_["database"]}`
+  `psql -U "#{config_["username"]}" -f #{::Rails.root}/db/structure.sql #{config_["database"]}`
 end
 
 
