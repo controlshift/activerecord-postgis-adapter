@@ -198,6 +198,10 @@ end
   end
   `pg_dump -i -s -x -O -f #{Shellwords.escape(filename)} #{search_path} #{Shellwords.escape(config['database'])}`
   raise 'Error dumping database' if $?.exitstatus == 1
+
+  if ActiveRecord::Base.connection.supports_migrations?
+    File.open(filename, "a") { |f| f << ActiveRecord::Base.connection.dump_schema_information }
+  end
 end
 
 
