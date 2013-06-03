@@ -1,3 +1,9 @@
+=== 0.6.4 / 2013-05-28
+
+* Fixed a crash with array conversions in Rails 4. (Contributed by Christopher Bull)
+* The gis setup task was broken in any Rails other than 3.2.x. Fixed (I think). (Reports by Rupert de Guzman and slbug)
+* Raise a more useful exception for the (as yet) unsupported combination of Rails 4 and JRuby.
+
 === 0.6.3 / 2013-05-04
 
 * Several fixes for compatibility with changes to Rails 4.0.0 rc1. (Reports by slbug and Victor Costan)
