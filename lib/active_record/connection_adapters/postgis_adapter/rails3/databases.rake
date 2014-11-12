@@ -55,7 +55,7 @@ namespace :db do
       else
         environments_ = [::Rails.env]
         environments_ << 'test' if ::Rails.env.development?
-        configs_ ::ActiveRecord::Base.configurations.values_at(*environments_).compact.reject{ |config_| config_['database'].blank? }
+        configs_ = ::ActiveRecord::Base.configurations.values_at(*environments_).compact.reject{ |config_| config_['database'].blank? }
       end
       configs_.each { |config_| setup_gis(config_) }
     end
@@ -122,9 +122,9 @@ def setup_gis(config_)
       postgis_extension_.each do |extname_|
         if extname_ == 'postgis_topology'
           raise ArgumentError, "'topology' must be in schema_search_path for postgis_topology" unless search_path_.include?('topology')
-          conn_.execute("CREATE EXTENSION #{extname_} SCHEMA topology")
+          conn_.execute("CREATE EXTENSION IF NOT EXISTS #{extname_} SCHEMA topology")
         else
-          conn_.execute("CREATE EXTENSION #{extname_} SCHEMA #{postgis_schema_}")
+          conn_.execute("CREATE EXTENSION IF NOT EXISTS #{extname_} SCHEMA #{postgis_schema_}")
         end
       end
     end
