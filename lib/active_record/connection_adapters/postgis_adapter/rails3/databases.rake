@@ -204,6 +204,8 @@ end
     search_path = search_path.split(",").map{|search_path_part| "--schema=#{Shellwords.escape(search_path_part.strip)}" }.join(" ")
   end
   `pg_dump -i -s -x -O -f #{Shellwords.escape(filename)} #{search_path} #{Shellwords.escape(config['database'])}`
+  `(sed -i 's/[[:space:]]*$//' "#{Shellwords.escape(filename)}" > /dev/null 2>&1 || sed -i '' -E 's/[[:space:]]*$//' "#{Shellwords.escape(filename)}")`
+
   raise 'Error dumping database' if $?.exitstatus == 1
 
   if ActiveRecord::Base.connection.supports_migrations?
