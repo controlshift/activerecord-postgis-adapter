@@ -217,13 +217,13 @@ end
 ::RGeo::ActiveRecord::TaskHacker.modify('db:structure:load', nil, 'postgis') do |config_|
   set_psql_env(config_)
   filename_ = ::File.join(::Rails.root, "db/structure.sql")
-  `psql -f #{filename_} #{config_["database"]}`
+  `psql -q -f #{filename_} #{config_["database"]}`
 end
 
 
 ::RGeo::ActiveRecord::TaskHacker.modify('db:test:clone_structure', 'test', 'postgis') do |config_|
   set_psql_env(config_)
-  `psql -U "#{config_["username"]}" -f #{::Rails.root}/db/structure.sql #{config_["database"]}`
+  `psql -q -U "#{config_["username"]}" -f #{::Rails.root}/db/structure.sql #{config_["database"]}`
 end
 
 
