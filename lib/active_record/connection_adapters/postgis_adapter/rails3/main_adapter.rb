@@ -96,51 +96,41 @@ module ActiveRecord  # :nodoc:
         end
 
 
-        def indexes(table_name_, name_=nil)
-          # FULL REPLACEMENT. RE-CHECK ON NEW VERSIONS.
-          # We needed to modify the catalog queries to pull the index type info.
-
-          # Remove postgis from schemas
-          schemas_ = schema_search_path.split(/,/)
-          schemas_.delete('postgis')
-          schemas_ = schemas_.map{ |p_| quote(p_) }.join(',')
-
-          # Get index type by joining with pg_am.
-          result_ = query(<<-SQL, name_)
-            SELECT DISTINCT i.relname, d.indisunique, d.indkey, t.oid, am.amname
-              FROM pg_class t, pg_class i, pg_index d, pg_am am
-            WHERE i.relkind = 'i'
-              AND d.indexrelid = i.oid
-              AND d.indisprimary = 'f'
-              AND t.oid = d.indrelid
-              AND t.relname = '#{table_name_}'
-              AND i.relnamespace IN (SELECT oid FROM pg_namespace WHERE nspname IN (#{schemas_}) )
-              AND i.relam = am.oid
-            ORDER BY i.relname
+        def indexes(table_name, name=nil)
+          result = query(<<-SQL, 'SCHEMA')
+           SELECT distinct i.relname, d.indisunique, d.indkey, pg_get_indexdef(d.indexrelid), t.oid
+           FROM pg_class t
+           INNER JOIN pg_index d ON t.oid = d.indrelid
+           INNER JOIN pg_class i ON d.indexrelid = i.oid
+           WHERE i.relkind = 'i'
+             AND d.indisprimary = 'f'
+             AND t.relname = '#{table_name}'
+             AND i.relnamespace IN (SELECT oid FROM pg_namespace WHERE nspname = ANY (current_schemas(false)) )
+          ORDER BY i.relname
           SQL
 
-          result_.map do |row_|
-            index_name_ = row_[0]
-            unique_ = row_[1] == 't'
-            indkey_ = row_[2].split(" ")
-            oid_ = row_[3]
-            indtype_ = row_[4]
 
-            columns_ = query(<<-SQL, "Columns for index #{row_[0]} on #{table_name_}").inject({}){ |h_, r_| h_[r_[0].to_s] = [r_[1], r_[2]]; h_ }
-              SELECT a.attnum, a.attname, t.typname
-                FROM pg_attribute a, pg_type t
-              WHERE a.attrelid = #{oid_}
-                AND a.attnum IN (#{indkey_.join(",")})
-                AND a.atttypid = t.oid
+          result.map do |row|
+            index_name = row[0]
+            unique = row[1] == 't'
+            indkey = row[2].split(" ")
+            inddef = row[3]
+            oid = row[4]
+
+            columns = Hash[query(<<-SQL, "SCHEMA")]
+          SELECT a.attnum, a.attname
+          FROM pg_attribute a
+          WHERE a.attrelid = #{oid}
+          AND a.attnum IN (#{indkey.join(",")})
             SQL
 
-            spatial_ = indtype_ == 'gist' && columns_.size == 1 && (columns_.values.first[1] == 'geometry' || columns_.values.first[1] == 'geography')
-            column_names_ = columns_.values_at(*indkey_).compact.map{ |a_| a_[0] }
-            if column_names_.empty?
-              nil
-            else
-              ::RGeo::ActiveRecord::SpatialIndexDefinition.new(table_name_, index_name_, unique_, column_names_, nil, nil, nil, spatial_ ? true : false)
-            end
+            column_names = columns.values_at(*indkey).compact
+
+            # add info on sort order for columns (only desc order is explicitly specified, asc is the default)
+            desc_order_columns = inddef.scan(/(\w+) DESC/).flatten
+            orders = desc_order_columns.any? ? Hash[desc_order_columns.map {|order_column| [order_column, :desc]}] : {}
+
+            column_names.empty? ? nil : IndexDefinition.new(table_name, index_name, unique, column_names, [], orders)
           end.compact
         end
 
